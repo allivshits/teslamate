@@ -39,7 +39,7 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
 
   @always_published ~w(charge_energy_added charger_actual_current charger_phases
                        charger_power charger_voltage scheduled_charging_start_time
-                       time_to_full_charge shift_state geofence trim_badging)a
+                       time_to_full_charge shift_state geofence trim_badging healthy)a
 
   @impl true
   def handle_info(%Summary{} = summary, state) do
@@ -176,13 +176,15 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
     })
   end
 
+  @do_not_retain ~w(healthy)a
+
   defp publish({key, value}, %State{car_id: car_id, namespace: namespace, deps: deps}) do
     topic =
       ["teslamate", namespace, "cars", car_id, key]
       |> Enum.reject(&is_nil(&1))
       |> Enum.join("/")
 
-    call(deps.publisher, :publish, [topic, to_str(value), [retain: true, qos: 1]])
+    call(deps.publisher, :publish, [topic, to_str(value), [retain: not(key in @do_not_retain), qos: 1]])
   end
 
   defp to_str(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
