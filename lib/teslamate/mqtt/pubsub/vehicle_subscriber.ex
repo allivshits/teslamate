@@ -54,8 +54,12 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
     {:noreply, %State{state | last_values: values}}
   end
 
-  defp publish_values(values, %State{last_values: values}) do
-    nil
+  defp publish_values(values, %State{last_values: values} = state) do
+    values
+    |> Map.take(@never_retained)
+    |> Enum.each(fn {key, value} ->
+      publish({key, value}, state)
+    end)
   end
 
   defp publish_values(values, state) do
