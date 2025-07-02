@@ -37,9 +37,10 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
     {:ok, %State{car_id: car_id, namespace: namespace, deps: deps}}
   end
 
-  @always_published ~w(charge_energy_added charger_actual_current charger_phases
+  @do_not_retain ~w(healthy)a
+  @publish_if_nil ~w(charge_energy_added charger_actual_current charger_phases
                        charger_power charger_voltage scheduled_charging_start_time
-                       time_to_full_charge shift_state geofence trim_badging healthy)a
+                       time_to_full_charge shift_state geofence trim_badging)a
 
   @impl true
   def handle_info(%Summary{} = summary, state) do
@@ -56,7 +57,7 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
 
   defp publish_values(values, %State{last_values: values} = state) do
     values
-    |> Map.take(@never_retained)
+    |> Map.take(@do_not_retain)
     |> Enum.each(fn {key, value} ->
       publish({key, value}, state)
     end)
@@ -66,8 +67,14 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
     values
     |> Stream.reject(&match?({_key, :unknown}, &1))
     |> Stream.filter(fn {key, value} ->
-      (key in @always_published or value != nil) and
+      (
+        (key in @publish_if_nil or value != nil)
+        and
         (state.last_values == nil or Map.get(state.last_values, key) != value)
+      )
+      or
+      key in @do_not_retain
+      )
     end)
     |> Task.async_stream(&publish(&1, state),
       max_concurrency: 10,
@@ -180,7 +187,7 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
     })
   end
 
-  @do_not_retain ~w(healthy)a
+
 
   defp publish({key, value}, %State{car_id: car_id, namespace: namespace, deps: deps}) do
     topic =
