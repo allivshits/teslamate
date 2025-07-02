@@ -68,12 +68,13 @@ defmodule TeslaMate.Mqtt.PubSub.VehicleSubscriber do
     |> Stream.reject(&match?({_key, :unknown}, &1))
     |> Stream.filter(fn {key, value} ->
       (
-        (key in @publish_if_nil or value != nil)
-        and
-        (state.last_values == nil or Map.get(state.last_values, key) != value)
-      )
-      or
-      key in @do_not_retain
+        (
+          (key in @publish_if_nil or value != nil)
+          and
+          (state.last_values == nil or Map.get(state.last_values, key) != value)
+        )
+        or
+        key in @do_not_retain
       )
     end)
     |> Task.async_stream(&publish(&1, state),
